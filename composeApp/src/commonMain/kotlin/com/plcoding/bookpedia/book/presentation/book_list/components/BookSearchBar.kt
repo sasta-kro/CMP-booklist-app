@@ -8,7 +8,12 @@ import com.plcoding.bookpedia.book.presentation.book_list.BookListAction
 @Composable
 fun BookSearchBar(
     searchQuery: String,
+
+    // this is for when the search query changes inside the search bar
+    // the new query text value will bubble up to let the parent function handle it.
     onSearchQueryChange: (String) -> Unit,
+
+
     onImeSearch: () -> Unit,
     modifier: Modifier = Modifier
 ) {

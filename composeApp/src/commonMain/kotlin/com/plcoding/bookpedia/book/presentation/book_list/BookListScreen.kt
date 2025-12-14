@@ -82,7 +82,7 @@ fun BookListScreenRoot(
                   then let the root (BookListScreenRoot) handle it.
 
                   root pov: if the action is `OnBookClick` then I will call my
-                  `onBookClick` param-function and let the function that calls me handles it.
+                  `onBookClick` param-function and let the function that calls me (parent) handles it.
                   In this case the commonMain `App` component will call this and handle it.
 
                   These "handing it over" are called "Bubbling"
@@ -119,7 +119,34 @@ private fun BookListScreen(
 ) {
     // Actual UI implementation
     // Eg: When the user types "A", this component calls: onAction(BookListAction.OnSearchQueryChange("A"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
+
+
+
+
+
 
 
 
