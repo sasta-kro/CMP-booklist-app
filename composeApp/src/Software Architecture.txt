@@ -1,0 +1,40 @@
+## Notes on App Architecture and Scaling by the creator of the tutorial
+
+# Overview
+The app is structured with scalability in mind, following a layered architecture.
+Even though the app itself is simple (with only two screens),
+the structure is designed to be applicable to larger applications.
+
+# Layered Architecture
+The app consists of three main layers:
+1.	Presentation Layer – Manages UI components and state (includes ViewModels, UI models, and composables).
+2.	Domain Layer – The core business logic of the app, containing domain models and use cases.
+3.	Data Layer – Handles external interactions like APIs, databases, and system services (e.g., network clients, repositories).
+Each feature in the app contains these three layers to keep it self-contained.
+
+# Defining Features in an App
+•	A feature consists of multiple screens that are closely related and can be reused together.
+•	Example: A book list screen and a book detail screen belong to the same feature because they are always used together.
+•	Authentication (login/register) is separate since it can be reused in different types of apps.
+
+# Dependency Flow
+•	Presentation Layer -> Domain Layer <- Data Layer (one-way dependency).
+•	The domain layer remains independent, meaning it does not directly access data sources or UI components.
+•	This ensures frequently changing implementation details (e.g., API changes) do not impact core business logic.
+
+# Implementation Details
+•	Data Layer: Stores everything related to retrieving and handling data (e.g., API communication, database storage, system sensors).
+•	Domain Layer: Defines the fundamental logic of the app, making it clear what problem the app solves. It contains business logic and domain models (e.g., defining what a "Book" is in a book-related app).
+•	Presentation Layer: Includes UI-specific logic like formatted dates, ViewModels, and composables.
+
+# Feature Packaging vs. Root-Layer Packaging
+•	A common mistake is placing all features inside root-level "data," "domain," and "presentation" folders.
+•	Instead, each feature should be a separate package containing its own data, domain, and presentation layers to keep it modular and reusable.
+
+# Scaling and Multimodule Architecture
+•	The app is structured so that transitioning to a multimodule architecture would be simple.
+•	A core package is used for shared utilities and models that multiple features need.
+•	In larger apps, this approach improves maintainability and modularization.
+
+
+

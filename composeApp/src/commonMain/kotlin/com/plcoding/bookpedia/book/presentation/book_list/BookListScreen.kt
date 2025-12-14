@@ -1,241 +1,105 @@
 package com.plcoding.bookpedia.book.presentation.book_list
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.getValue // Required for the 'by' keyword delegate
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cmp_bookpedia.composeapp.generated.resources.Res
-import cmp_bookpedia.composeapp.generated.resources.favorites
-import cmp_bookpedia.composeapp.generated.resources.no_favorite_books
-import cmp_bookpedia.composeapp.generated.resources.no_search_results
-import cmp_bookpedia.composeapp.generated.resources.search_results
 import com.plcoding.bookpedia.book.domain.Book
-import com.plcoding.bookpedia.book.presentation.book_list.components.BookList
-import com.plcoding.bookpedia.book.presentation.book_list.components.BookSearchBar
-import com.plcoding.bookpedia.core.presentation.DarkBlue
-import com.plcoding.bookpedia.core.presentation.DesertWhite
-import com.plcoding.bookpedia.core.presentation.SandYellow
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
+/**
+ * BookListScreenRoot (The "Smart" Manager Component)
+ *
+ * Responsibilities:
+ * 1. integration point between the UI and the System (ViewModel, Navigation).
+ * 2. Collects the State Flow and converts it into a UI Snapshot.
+ * 3. Handles "Traffic Control" for actions: decides if an action should trigger navigation
+ * or if it should be sent to the ViewModel for processing.
+ *
+ * It does NOT draw pixels (UI elements). It manages data flow.
+ */
 @Composable
 fun BookListScreenRoot(
+    /*   `= koinViewModel():`
+      This is a "Default Argument" using the Koin Dependency Injection library.
+      Functionality: If the caller does not provide a viewModel instance, Koin automatically
+      searches the dependency graph, finds the correct BookListViewModel, and injects it here.
+      Benefit: It allows for easy testing (a fake ViewModel can be passed manually) while
+      keeping the production call site clean.
+     */
     viewModel: BookListViewModel = koinViewModel(),
+
+    /*
+      `onBookClick:`
+      A callback function (lambda parameter) provided by the Navigation Host (another component)
+      The Screen does not know HOW to navigate. It simply invokes this function
+      when a book is selected, and the Navigation Host handles the actual screen transition.
+     */
     onBookClick: (Book) -> Unit,
 ) {
+    /*
+      viewModel.state.collectAsStateWithLifecycle():
+      1. `viewModel.state`: Accesses the public StateFlow from the ViewModel.
+      (Note: If this highlights red, the BookListViewModel class is missing the public
+      `val state = _state.asStateFlow()` property).
+
+      2. `collectAsStateWithLifecycle()`: Safely converts the reactive Flow (stream of data)
+      into a Compose State (snapshot of data). It is "Lifecycle Aware," meaning it stops
+      listening when the app goes to the background to save battery.
+
+      3. `by`: A Kotlin delegate that allows accessing `state` (the new one,
+       not the viewModel's one) directly as a BookListState object
+      instead of needing to type `state.value` every time.
+     */
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    /*  Passing data down to the "Dumb" component.
+         This pattern is called "State Hoisting".
+     */
     BookListScreen(
-        state = state,
+        state = state, // Passes the current data snapshot to be drawn.
+
+        /*
+          onAction Lambda (The Event Bridge):
+          Catches events up from the UI when it triggers the onAction param-function
+          'action' is the specific event object (e.g., OnBookClick, OnSearchQueryChange).
+         */
         onAction = { action ->
-            when(action) {
+            when (action) {
+                /*
+                  Case 1: Navigation Event
+                  If the action is clicking a book, this component handles it directly
+                  by calling the navigation callback `onBookClick`.
+                  It is NOT sent to the ViewModel because navigation is a UI-side concern.
+                 */
                 is BookListAction.OnBookClick -> onBookClick(action.book)
+
+
                 else -> Unit
             }
-            viewModel.onAction(action)
         }
     )
 }
 
+/**
+ * BookListScreen (The "Dumb" Worker Component)
+ *
+ * Responsibilities:
+ * 1. Pure UI rendering. It takes data (`state`) and draws it.
+ * 2. User Interaction detection. When a user touches something, it fires `onAction`.
+ *
+ * It is `private` because it should only be accessed via the Root manager.
+ * It creates a separation of concerns: This function doesn't know what a ViewModel is
+ * or how navigation works. It facilitates easier UI Previews (Compose Previews)
+ * because it relies on simple data classes rather than complex ViewModels.
+ */
 @Composable
-fun BookListScreen(
+private fun BookListScreen(
     state: BookListState,
+
+    // the UI will call the function passed into `onAction` parameter when
+    // something inside the BookListScreen triggers `onAction`.
     onAction: (BookListAction) -> Unit,
 ) {
-    val keyboardController = LocalSoftwareKeyboardController.current
-
-    val pagerState = rememberPagerState { 2 }
-    val searchResultsListState = rememberLazyListState()
-    val favoriteBooksListState = rememberLazyListState()
-
-    LaunchedEffect(state.searchResults) {
-        searchResultsListState.animateScrollToItem(0)
-    }
-
-    LaunchedEffect(state.selectedTabIndex) {
-        pagerState.animateScrollToPage(state.selectedTabIndex)
-    }
-
-    LaunchedEffect(pagerState.currentPage) {
-        onAction(BookListAction.OnTabSelected(pagerState.currentPage))
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBlue)
-            .statusBarsPadding(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        BookSearchBar(
-            searchQuery = state.searchQuery,
-            onSearchQueryChange = {
-                onAction(BookListAction.OnSearchQueryChange(it))
-            },
-            onImeSearch = {
-                keyboardController?.hide()
-            },
-            modifier = Modifier
-                .widthIn(max = 400.dp)
-                .fillMaxWidth()
-                .padding(16.dp)
-        )
-        Surface(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            color = DesertWhite,
-            shape = RoundedCornerShape(
-                topStart = 32.dp,
-                topEnd = 32.dp
-            )
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                TabRow(
-                    selectedTabIndex = state.selectedTabIndex,
-                    modifier = Modifier
-                        .padding(vertical = 12.dp)
-                        .widthIn(max = 700.dp)
-                        .fillMaxWidth(),
-                    containerColor = DesertWhite,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.SecondaryIndicator(
-                            color = SandYellow,
-                            modifier = Modifier
-                                .tabIndicatorOffset(tabPositions[state.selectedTabIndex])
-                        )
-                    }
-                ) {
-                    Tab(
-                        selected = state.selectedTabIndex == 0,
-                        onClick = {
-                            onAction(BookListAction.OnTabSelected(0))
-                        },
-                        modifier = Modifier.weight(1f),
-                        selectedContentColor = SandYellow,
-                        unselectedContentColor = Color.Black.copy(alpha = 0.5f)
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.search_results),
-                            modifier = Modifier
-                                .padding(vertical = 12.dp)
-                        )
-                    }
-                    Tab(
-                        selected = state.selectedTabIndex == 1,
-                        onClick = {
-                            onAction(BookListAction.OnTabSelected(1))
-                        },
-                        modifier = Modifier.weight(1f),
-                        selectedContentColor = SandYellow,
-                        unselectedContentColor = Color.Black.copy(alpha = 0.5f)
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.favorites),
-                            modifier = Modifier
-                                .padding(vertical = 12.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                ) { pageIndex ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        when(pageIndex) {
-                            0 -> {
-                                if(state.isLoading) {
-                                    CircularProgressIndicator()
-                                } else {
-                                    when {
-                                        state.errorMessage != null -> {
-                                            Text(
-                                                text = state.errorMessage.asString(),
-                                                textAlign = TextAlign.Center,
-                                                style = MaterialTheme.typography.headlineSmall,
-                                                color = MaterialTheme.colorScheme.error
-                                            )
-                                        }
-                                        state.searchResults.isEmpty() -> {
-                                            Text(
-                                                text = stringResource(Res.string.no_search_results),
-                                                textAlign = TextAlign.Center,
-                                                style = MaterialTheme.typography.headlineSmall,
-                                                color = MaterialTheme.colorScheme.error
-                                            )
-                                        }
-                                        else -> {
-                                            BookList(
-                                                books = state.searchResults,
-                                                onBookClick = {
-                                                    onAction(BookListAction.OnBookClick(it))
-                                                },
-                                                modifier = Modifier.fillMaxSize(),
-                                                scrollState = searchResultsListState
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            1 -> {
-                                if(state.favoriteBooks.isEmpty()) {
-                                    Text(
-                                        text = stringResource(Res.string.no_favorite_books),
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.headlineSmall,
-                                    )
-                                } else {
-                                    BookList(
-                                        books = state.favoriteBooks,
-                                        onBookClick = {
-                                            onAction(BookListAction.OnBookClick(it))
-                                        },
-                                        modifier = Modifier.fillMaxSize(),
-                                        scrollState = favoriteBooksListState
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Actual UI implementation (Scaffold, LazyColumn, TextField, etc.) goes here.
+    // When the user types "A", this component calls: onAction(BookListAction.OnSearchQueryChange("A"))
 }

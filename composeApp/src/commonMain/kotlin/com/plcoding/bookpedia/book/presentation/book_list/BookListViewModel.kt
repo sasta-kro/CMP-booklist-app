@@ -1,135 +1,50 @@
-@file:OptIn(FlowPreview::class)
-
 package com.plcoding.bookpedia.book.presentation.book_list
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.plcoding.bookpedia.book.domain.Book
-import com.plcoding.bookpedia.book.domain.BookRepository
-import com.plcoding.bookpedia.core.domain.onError
-import com.plcoding.bookpedia.core.domain.onSuccess
-import com.plcoding.bookpedia.core.presentation.toUiText
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
-class BookListViewModel(
-    private val bookRepository: BookRepository
-) : ViewModel() {
+// Every ViewModel in Compose inherits from ...lifecycle.ViewModel lib
+class BookListViewModel: ViewModel() {
 
-    private var cachedBooks = emptyList<Book>()
-    private var searchJob: Job? = null
-    private var observeFavoriteJob: Job? = null
+    /* These are the variables that stores the state of the BookList screen.
+    The tutorial guy prefers to use MutableStateFlow class to use as state.
+    We pass in our BookListState class which has all the possible changing variables of the screen
 
+    A good practice is to have 2 state variables:
+    - a private state variable that will be changing inside the ViewModel
+    - an immutable public state model that can be accessed publicly
+    this is because the UI shouldn't be able to mutate the state directly
+    it should be done by the View Model
+
+     */
     private val _state = MutableStateFlow(BookListState())
-    val state = _state
-        .onStart {
-            if(cachedBooks.isEmpty()) {
-                observeSearchQuery()
-            }
-            observeFavoriteBooks()
-        }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000L),
-            _state.value
-        )
+    val state = _state.asStateFlow()
 
+    // The UI should call this function that pass-in the action
+    // the View Model then should update the state
     fun onAction(action: BookListAction) {
-        when (action) {
-            is BookListAction.OnBookClick -> {
-
-            }
+        when(action){
+            is BookListAction.OnBookClick -> TODO()
 
             is BookListAction.OnSearchQueryChange -> {
                 _state.update {
+                    // it basically safe sets the new searchQuery value to update state
                     it.copy(searchQuery = action.query)
+
+                    /* I can think of something like
+                    _state.BookListState.searchQuery = action.newQuery
+                     */
                 }
             }
 
             is BookListAction.OnTabSelected -> {
-                _state.update {
-                    it.copy(selectedTabIndex = action.index)
+                _state.update{
+                    it.copy(selectedTabIndex = action.index) // updates the tab index
                 }
             }
         }
+
     }
-
-    private fun observeFavoriteBooks() {
-        observeFavoriteJob?.cancel()
-        observeFavoriteJob = bookRepository
-            .getFavoriteBooks()
-            .onEach { favoriteBooks ->
-                _state.update { it.copy(
-                    favoriteBooks = favoriteBooks
-                ) }
-            }
-            .launchIn(viewModelScope)
-    }
-
-    private fun observeSearchQuery() {
-        state
-            .map { it.searchQuery }
-            .distinctUntilChanged()
-            .debounce(500L)
-            .onEach { query ->
-                when {
-                    query.isBlank() -> {
-                        _state.update {
-                            it.copy(
-                                errorMessage = null,
-                                searchResults = cachedBooks
-                            )
-                        }
-                    }
-
-                    query.length >= 2 -> {
-                        searchJob?.cancel()
-                        searchJob = searchBooks(query)
-                    }
-                }
-            }
-            .launchIn(viewModelScope)
-    }
-
-    private fun searchBooks(query: String) = viewModelScope.launch {
-        _state.update {
-            it.copy(
-                isLoading = true
-            )
-        }
-        bookRepository
-            .searchBooks(query)
-            .onSuccess { searchResults ->
-                _state.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = null,
-                        searchResults = searchResults
-                    )
-                }
-            }
-            .onError { error ->
-                _state.update {
-                    it.copy(
-                        searchResults = emptyList(),
-                        isLoading = false,
-                        errorMessage = error.toUiText()
-                    )
-                }
-            }
-    }
-
 }
