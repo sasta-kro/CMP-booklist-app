@@ -10,7 +10,7 @@ sealed interface BookListAction {
     /*
     The action classes should be named in a way where it describes what the user did
     rather than what should happen after the click because the UI is not responsible
-    on deciding what happen, that is the responsibility of the View Model.
+    on deciding what happens after the action is performed, that is the responsibility of the View Model.
 
     This keeps the UI and the ViewModel decoupled, making it easier to reuse it.
 
