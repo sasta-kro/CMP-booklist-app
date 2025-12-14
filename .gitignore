@@ -10,6 +10,9 @@
 # Shared project settings (some .idea files) should be kept for consistency.
 *.iml
 
+# Kotlin build metadata
+.kotlin/
+
 # user specific
 .idea/workspace.xml
 .idea/tasks.xml
@@ -17,6 +20,7 @@
 # temporary files
 .idea/caches/
 .idea/render.experimental.xml
+.fleet/
 
 # Native build generated files
 .cxx/
